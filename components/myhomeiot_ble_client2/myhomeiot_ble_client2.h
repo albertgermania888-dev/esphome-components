@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #pragma once
 #ifndef MYHOMEIOT_BLE_CLIENT_2
 #define MYHOMEIOT_BLE_CLIENT_2
@@ -92,7 +93,7 @@ public:
 
   void dump_config() override {
     ESP_LOGCONFIG(TAG, "MyHomeIOT BLE Client V2");
-    ESP_LOGCONFIG(TAG, "  MAC address: %s", to_string(this->address_).c_str());
+    ESP_LOGCONFIG(TAG, "  MAC address: %s", to_str(this->address_).c_str());
     if (this->services.empty())
       ESP_LOGW(TAG, "  No one service defined! Device is undiscovered.");
     else {
@@ -101,9 +102,9 @@ public:
                       this->services[i]->is_notify()  ? "Notify"
                       : this->services[i]->is_write() ? "Write"
                                                       : "Read",
-                      this->services[i]->service_uuid_.to_string().c_str(), this->services[i]->char_uuid_.to_string().c_str(),
+                      this->services[i]->service_uuid_.to_str().c_str(), this->services[i]->char_uuid_.to_str().c_str(),
                       this->services[i]->descr_uuid_.get_uuid().len == 0 ? "" : ", Descriptor UUID: ",
-                      this->services[i]->descr_uuid_.get_uuid().len == 0 ? "" : this->services[i]->descr_uuid_.to_string().c_str());
+                      this->services[i]->descr_uuid_.get_uuid().len == 0 ? "" : this->services[i]->descr_uuid_.to_str().c_str());
       LOG_UPDATE_INTERVAL(this);
     }
   }
@@ -114,7 +115,7 @@ public:
     else if (this->state_ == MYHOMEIOT_ESTABLISHED)
       this->disconnect();
     else if (this->state_ == MYHOMEIOT_CONNECTED && this->wait_until > 0 && this->wait_until < millis()) {
-      ESP_LOGD(TAG, "[%s] Time to wake up", to_string(this->address_).c_str());
+      ESP_LOGD(TAG, "[%s] Time to wake up", to_str(this->address_).c_str());
       process_next_service();
     }
   }
@@ -133,7 +134,7 @@ public:
 
   void force_update() {
     if (this->state_ == MYHOMEIOT_IDLE) {
-      ESP_LOGD(TAG, "[%s] Force update requested", to_string(this->address_).c_str());
+      ESP_LOGD(TAG, "[%s] Force update requested", to_str(this->address_).c_str());
       this->is_update_requested_ = true;
     }
   }
@@ -155,15 +156,15 @@ public:
       if (memcmp(param->open.remote_bda, this->remote_bda_, sizeof(this->remote_bda_)) != 0)
         break;
       if (param->open.status != ESP_GATT_OK) {
-        ESP_LOGW(TAG, "[%s] OPEN_EVT failed, status (%d), app_id (%d)", to_string(this->address_).c_str(), param->open.status,
+        ESP_LOGW(TAG, "[%s] OPEN_EVT failed, status (%d), app_id (%d)", to_str(this->address_).c_str(), param->open.status,
                  ble_host_->app_id);
         report_error(MYHOMEIOT_IDLE);
         break;
       }
-      ESP_LOGI(TAG, "[%s] Connected successfully, app_id (%d)", to_string(this->address_).c_str(), ble_host_->app_id);
+      ESP_LOGI(TAG, "[%s] Connected successfully, app_id (%d)", to_str(this->address_).c_str(), ble_host_->app_id);
       this->conn_id_ = param->open.conn_id;
       if (auto status = esp_ble_gattc_send_mtu_req(ble_host_->gattc_if, param->open.conn_id)) {
-        ESP_LOGW(TAG, "[%s] send_mtu_req failed, status (%d)", to_string(this->address_).c_str(), status);
+        ESP_LOGW(TAG, "[%s] send_mtu_req failed, status (%d)", to_str(this->address_).c_str(), status);
         report_error();
         break;
       }
@@ -176,13 +177,13 @@ public:
       if (param->cfg_mtu.conn_id != this->conn_id_)
         break;
       if (param->cfg_mtu.status != ESP_GATT_OK) {
-        ESP_LOGW(TAG, "[%s] CFG_MTU_EVT failed, status (%d)", to_string(this->address_).c_str(), param->cfg_mtu.status);
+        ESP_LOGW(TAG, "[%s] CFG_MTU_EVT failed, status (%d)", to_str(this->address_).c_str(), param->cfg_mtu.status);
         report_error();
         break;
       }
-      ESP_LOGD(TAG, "[%s] CFG_MTU_EVT, MTU (%d)", to_string(this->address_).c_str(), param->cfg_mtu.mtu);
+      ESP_LOGD(TAG, "[%s] CFG_MTU_EVT, MTU (%d)", to_str(this->address_).c_str(), param->cfg_mtu.mtu);
       if (auto status = esp_ble_gattc_search_service(esp_gattc_if, param->cfg_mtu.conn_id, nullptr)) {
-        ESP_LOGW(TAG, "[%s] search_service failed, status (%d)", to_string(this->address_).c_str(), status);
+        ESP_LOGW(TAG, "[%s] search_service failed, status (%d)", to_str(this->address_).c_str(), status);
         report_error();
       }
       break;
@@ -190,7 +191,7 @@ public:
     case ESP_GATTC_DISCONNECT_EVT: {
       if (memcmp(param->disconnect.remote_bda, this->remote_bda_, sizeof(this->remote_bda_)) != 0)
         return false;
-      ESP_LOGD(TAG, "[%s] DISCONNECT_EVT", to_string(this->address_).c_str());
+      ESP_LOGD(TAG, "[%s] DISCONNECT_EVT", to_str(this->address_).c_str());
       this->state_ = MYHOMEIOT_IDLE;
       break;
     }
@@ -205,25 +206,25 @@ public:
       bool found = false;
       for (int i = 0; i < this->services.size(); i++)
         if (uuid == this->services[i]->service_uuid_) {
-          ESP_LOGD(TAG, "[%s] SEARCH_RES_EVT service[%d] (%s) found", to_string(this->address_).c_str(), i + 1, uuid.to_string().c_str());
+          ESP_LOGD(TAG, "[%s] SEARCH_RES_EVT service[%d] (%s) found", to_str(this->address_).c_str(), i + 1, uuid.to_str().c_str());
           this->services[i]->start_handle_ = param->search_res.start_handle;
           this->services[i]->end_handle_ = param->search_res.end_handle;
           found = true;
         }
       if (!found) {
-        ESP_LOGV(TAG, "[%s] SEARCH_RES_EVT got unused service (%s)", to_string(this->address_).c_str(), uuid.to_string().c_str());
+        ESP_LOGV(TAG, "[%s] SEARCH_RES_EVT got unused service (%s)", to_str(this->address_).c_str(), uuid.to_str().c_str());
       }
       break;
     }
     case ESP_GATTC_SEARCH_CMPL_EVT: {
       if (param->search_cmpl.conn_id != this->conn_id_)
         break;
-      ESP_LOGV(TAG, "[%s] SEARCH_CMPL_EVT", to_string(this->address_).c_str());
+      ESP_LOGV(TAG, "[%s] SEARCH_CMPL_EVT", to_str(this->address_).c_str());
 
       for (int i = 0; i < this->services.size(); i++)
         if (this->services[i]->start_handle_ == ESP_GATT_ILLEGAL_HANDLE) {
-          ESP_LOGW(TAG, "[%s] SEARCH_CMPL_EVT service[%d] (%s) not found", to_string(this->address_).c_str(), i + 1,
-                   this->services[i]->service_uuid_.to_string().c_str());
+          ESP_LOGW(TAG, "[%s] SEARCH_CMPL_EVT service[%d] (%s) not found", to_str(this->address_).c_str(), i + 1,
+                   this->services[i]->service_uuid_.to_str().c_str());
         }
       process_next_service();
       break;
@@ -231,11 +232,11 @@ public:
     case ESP_GATTC_READ_DESCR_EVT:
     case ESP_GATTC_READ_CHAR_EVT: {
       if (param->read.conn_id != this->conn_id_ || param->read.handle != this->services[processing_service]->char_handle_) {
-        ESP_LOGD(TAG, "[%s] Received read for unknown handle (%d)", to_string(this->address_).c_str(), param->read.handle);
+        ESP_LOGD(TAG, "[%s] Received read for unknown handle (%d)", to_str(this->address_).c_str(), param->read.handle);
         break;
       }
       if (param->read.status != ESP_GATT_OK) {
-        ESP_LOGW(TAG, "[%s] READ_CHAR_EVT error reading char at handle (%d), status (%d)", to_string(this->address_).c_str(),
+        ESP_LOGW(TAG, "[%s] READ_CHAR_EVT error reading char at handle (%d), status (%d)", to_str(this->address_).c_str(),
                  param->read.handle, param->read.status);
         report_error();
         break;
@@ -247,23 +248,23 @@ public:
     }
     case ESP_GATTC_WRITE_CHAR_EVT: {
       if (param->write.status != ESP_GATT_OK) {
-        ESP_LOGW(TAG, "[%s] WRITE_CHAR_EVT error writing char at handle (%d), status (%d)", to_string(this->address_).c_str(),
+        ESP_LOGW(TAG, "[%s] WRITE_CHAR_EVT error writing char at handle (%d), status (%d)", to_str(this->address_).c_str(),
                  param->write.handle, param->write.status);
         report_error();
         break;
       }
-      ESP_LOGD(TAG, "[%s] WRITE_CHAR offset: %d", to_string(this->address_).c_str(), param->write.offset);
+      ESP_LOGD(TAG, "[%s] WRITE_CHAR offset: %d", to_str(this->address_).c_str(), param->write.offset);
       process_next_service();
       break;
     }
     case ESP_GATTC_REG_FOR_NOTIFY_EVT: {
       if (param->reg_for_notify.status != ESP_GATT_OK) {
-        ESP_LOGW(TAG, "[%s] REG_FOR_NOTIFY_EVT error at handle (%d), status (%d)", to_string(this->address_).c_str(),
+        ESP_LOGW(TAG, "[%s] REG_FOR_NOTIFY_EVT error at handle (%d), status (%d)", to_str(this->address_).c_str(),
                  param->reg_for_notify.handle, param->reg_for_notify.status);
         report_error();
         break;
       }
-      ESP_LOGD(TAG, "[%s] Reg notify event", to_string(this->address_).c_str());
+      ESP_LOGD(TAG, "[%s] Reg notify event", to_str(this->address_).c_str());
       process_next_service();
       break;
     }
@@ -276,11 +277,11 @@ public:
           process_next_service();
           return true;
         }
-      ESP_LOGD(TAG, "[%s] Received notify for unknown handle (%d)", to_string(this->address_).c_str(), param->notify.handle);
+      ESP_LOGD(TAG, "[%s] Received notify for unknown handle (%d)", to_str(this->address_).c_str(), param->notify.handle);
       break;
     }
     default:
-      ESP_LOGV(TAG, "[%s] Non processed event type: %d", to_string(this->address_).c_str(), event);
+      ESP_LOGV(TAG, "[%s] Non processed event type: %d", to_str(this->address_).c_str(), event);
       break;
     }
     return true;
@@ -292,7 +293,7 @@ public:
   void add_service(MyHomeIOT_BLEClientService *service) { this->services.push_back(service); }
 
 protected:
-  std::string to_string(uint64_t address) const {
+  std::string to_str(uint64_t address) const {
     char buffer[20];
     sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", (uint8_t)(address >> 40), (uint8_t)(address >> 32), (uint8_t)(address >> 24),
             (uint8_t)(address >> 16), (uint8_t)(address >> 8), (uint8_t)(address >> 0));
@@ -316,19 +317,19 @@ protected:
   char temp_str[65];
 
   void connect() {
-    ESP_LOGI(TAG, "[%s] Connecting", to_string(this->address_).c_str());
+    ESP_LOGI(TAG, "[%s] Connecting", to_str(this->address_).c_str());
     this->state_ = MYHOMEIOT_CONNECTING;
     if (auto status = esp_ble_gattc_open(ble_host_->gattc_if, this->remote_bda_, BLE_ADDR_TYPE_PUBLIC, true)) {
-      ESP_LOGW(TAG, "[%s] open error, status (%d)", to_string(this->address_).c_str(), status);
+      ESP_LOGW(TAG, "[%s] open error, status (%d)", to_str(this->address_).c_str(), status);
       report_error(MYHOMEIOT_IDLE);
     }
   }
 
   void disconnect() {
-    ESP_LOGI(TAG, "[%s] Disconnecting", to_string(this->address_).c_str());
+    ESP_LOGI(TAG, "[%s] Disconnecting", to_str(this->address_).c_str());
     this->state_ = MYHOMEIOT_IDLE;
     if (auto status = esp_ble_gattc_close(ble_host_->gattc_if, this->conn_id_))
-      ESP_LOGW(TAG, "[%s] close error, status (%d)", to_string(this->address_).c_str(), status);
+      ESP_LOGW(TAG, "[%s] close error, status (%d)", to_str(this->address_).c_str(), status);
   }
 
   void update() override { this->is_update_requested_ = true; }
@@ -337,13 +338,13 @@ protected:
     this->status_clear_warning();
     std::vector<uint8_t> value(data, data + len);
     vec2str(value);
-    ESP_LOGD(TAG, "[%s] Receiving %d bytes for %sservice[%d] (%s): [%s%s]", to_string(this->address_).c_str(), value.size(),
-             this->services[service]->is_notify() ? "notify " : "", service + 1, this->services[service]->service_uuid_.to_string().c_str(),
+    ESP_LOGD(TAG, "[%s] Receiving %zu bytes for %sservice[%d] (%s): [%s%s]", to_str(this->address_).c_str(), value.size(),
+             this->services[service]->is_notify() ? "notify " : "", service + 1, this->services[service]->service_uuid_.to_str().c_str(),
              strlen(temp_str) > 0 ? "0x" : "", temp_str);
     this->value_callback_.call(value, service + 1, this->stop_processing, *this);
     if (this->stop_processing) {
-      ESP_LOGD(TAG, "[%s] Stop processing after service[%d] (%s)", to_string(this->address_).c_str(), service + 1,
-               this->services[service]->service_uuid_.to_string().c_str());
+      ESP_LOGD(TAG, "[%s] Stop processing after service[%d] (%s)", to_str(this->address_).c_str(), service + 1,
+               this->services[service]->service_uuid_.to_str().c_str());
       this->processing_service = this->services.size() + 1;
     }
   }
@@ -374,10 +375,10 @@ protected:
       if (this->stop_processing || this->processing_service >= this->services.size()) {
         this->status_clear_warning();
         if (!this->stop_processing && this->has_notify) {
-          ESP_LOGD(TAG, "[%s] All services processed, but need to wait notifies", to_string(this->address_).c_str());
+          ESP_LOGD(TAG, "[%s] All services processed, but need to wait notifies", to_str(this->address_).c_str());
           return false;
         }
-        ESP_LOGV(TAG, "[%s] All services processed", to_string(this->address_).c_str());
+        ESP_LOGV(TAG, "[%s] All services processed", to_str(this->address_).c_str());
         this->is_update_requested_ = false;
         this->state_ = MYHOMEIOT_ESTABLISHED;
         return false;
@@ -393,8 +394,8 @@ protected:
       if (this->wait_until == 0) {
         uint32_t delay = this->services[this->processing_service]->get_delay();
         if (delay > 0) {
-          ESP_LOGD(TAG, "[%s] Waiting for %dms for service[%d] (%s)", to_string(this->address_).c_str(), delay,
-                   this->processing_service + 1, this->services[this->processing_service]->service_uuid_.to_string().c_str());
+          ESP_LOGD(TAG, "[%s] Waiting for %" PRIu32 "ms for service[%d] (%s)", to_str(this->address_).c_str(), delay,
+                   this->processing_service + 1, this->services[this->processing_service]->service_uuid_.to_str().c_str());
           this->wait_until = millis() + delay;
           return false;
         }
@@ -416,8 +417,8 @@ protected:
     if (this->services[i]->is_write()) {
       value = services[i]->get_value();
       if (value.empty() && this->services[i]->get_skip_empty()) {
-        ESP_LOGD(TAG, "[%s] Skip service[%d] (%s) cause nothing to send", to_string(this->address_).c_str(), i + 1,
-                 this->services[i]->service_uuid_.to_string().c_str());
+        ESP_LOGD(TAG, "[%s] Skip service[%d] (%s) cause nothing to send", to_str(this->address_).c_str(), i + 1,
+                 this->services[i]->service_uuid_.to_str().c_str());
         return false;
       }
     }
@@ -431,7 +432,7 @@ protected:
       if (status != ESP_GATT_OK) {
         if (status == ESP_GATT_INVALID_OFFSET || status == ESP_GATT_NOT_FOUND)
           break;
-        ESP_LOGW(TAG, "[%s] get_all_char error, status (%d)", to_string(this->address_).c_str(), status);
+        ESP_LOGW(TAG, "[%s] get_all_char error, status (%d)", to_str(this->address_).c_str(), status);
         report_error();
         break;
       }
@@ -439,8 +440,8 @@ protected:
         break;
 
       if (this->services[i]->char_uuid_ == esp32_ble_tracker::ESPBTUUID::from_uuid(result.uuid)) {
-        ESP_LOGD(TAG, "[%s] SEARCH_CMPL_EVT char (%s) found", to_string(this->address_).c_str(),
-                 this->services[i]->char_uuid_.to_string().c_str());
+        ESP_LOGD(TAG, "[%s] SEARCH_CMPL_EVT char (%s) found", to_str(this->address_).c_str(),
+                 this->services[i]->char_uuid_.to_str().c_str());
         this->services[i]->char_handle_ = result.char_handle;
 
         if (this->services[i]->descr_uuid_.get_uuid().len != 0) {
@@ -453,22 +454,22 @@ protected:
             if (status2 != ESP_GATT_OK) {
               if (status2 == ESP_GATT_INVALID_OFFSET || status2 == ESP_GATT_NOT_FOUND)
                 break;
-              ESP_LOGW(TAG, "[%s] get_all_descr error, status (%d)", to_string(this->address_).c_str(), status2);
+              ESP_LOGW(TAG, "[%s] get_all_descr error, status (%d)", to_str(this->address_).c_str(), status2);
               report_error();
               return true;
             }
             if (count == 0)
               break;
             if (this->services[i]->descr_uuid_ == esp32_ble_tracker::ESPBTUUID::from_uuid(result_descr.uuid)) {
-              ESP_LOGD(TAG, "[%s] SEARCH_CMPL_EVT for char (%s) found descr (%s)", to_string(this->address_).c_str(),
-                       this->services[i]->char_uuid_.to_string().c_str(), this->services[i]->descr_uuid_.to_string().c_str());
+              ESP_LOGD(TAG, "[%s] SEARCH_CMPL_EVT for char (%s) found descr (%s)", to_str(this->address_).c_str(),
+                       this->services[i]->char_uuid_.to_str().c_str(), this->services[i]->descr_uuid_.to_str().c_str());
               this->services[i]->char_handle_ = result_descr.handle;
               descr_found = true;
             }
           }
           if (!descr_found) {
-            ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT descr (%s) not found", to_string(this->address_).c_str(),
-                     this->services[i]->descr_uuid_.to_string().c_str());
+            ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT descr (%s) not found", to_str(this->address_).c_str(),
+                     this->services[i]->descr_uuid_.to_str().c_str());
             report_error();
             return true;
           }
@@ -477,7 +478,7 @@ protected:
         if (this->services[i]->is_notify()) {
           auto status = esp_ble_gattc_register_for_notify(ble_host_->gattc_if, this->remote_bda_, this->services[i]->char_handle_);
           if (status != ESP_GATT_OK) {
-            ESP_LOGW(TAG, "[%s] register_for_notify failed, status (%d)", to_string(this->address_).c_str(), status);
+            ESP_LOGW(TAG, "[%s] register_for_notify failed, status (%d)", to_str(this->address_).c_str(), status);
             this->services[i]->char_handle_ = ESP_GATT_ILLEGAL_HANDLE;
           }
 
@@ -488,21 +489,21 @@ protected:
           } else if (result.properties & ESP_GATT_CHAR_PROP_BIT_WRITE_NR) {
             write_type = ESP_GATT_WRITE_TYPE_NO_RSP;
           } else {
-            ESP_LOGE(TAG, "[%s] Characteristic %s does not allow writing", to_string(this->address_).c_str(),
-                     this->services[i]->char_uuid_.to_string().c_str());
+            ESP_LOGE(TAG, "[%s] Characteristic %s does not allow writing", to_str(this->address_).c_str(),
+                     this->services[i]->char_uuid_.to_str().c_str());
             this->services[i]->char_handle_ = ESP_GATT_ILLEGAL_HANDLE;
             break;
           }
 
           vec2str(value);
-          ESP_LOGD(TAG, "[%s] Sending %d bytes %sfor service[%d] (%s): [%s%s]", to_string(this->address_).c_str(), value.size(),
+          ESP_LOGD(TAG, "[%s] Sending %zu bytes %sfor service[%d] (%s): [%s%s]", to_str(this->address_).c_str(), value.size(),
                    write_type == ESP_GATT_WRITE_TYPE_RSP ? "(with response) " : "", i + 1,
-                   this->services[i]->service_uuid_.to_string().c_str(), strlen(temp_str) > 0 ? "0x" : "", temp_str);
+                   this->services[i]->service_uuid_.to_str().c_str(), strlen(temp_str) > 0 ? "0x" : "", temp_str);
 
           auto status = esp_ble_gattc_write_char(ble_host_->gattc_if, this->conn_id_, this->services[i]->char_handle_, value.size(),
                                                  value.data(), write_type, ESP_GATT_AUTH_REQ_NONE);
           if (status != ESP_GATT_OK) {
-            ESP_LOGW(TAG, "[%s] write_char error sending write request, status (%d)", to_string(this->address_).c_str(), status);
+            ESP_LOGW(TAG, "[%s] write_char error sending write request, status (%d)", to_str(this->address_).c_str(), status);
             this->services[i]->char_handle_ = ESP_GATT_ILLEGAL_HANDLE;
           }
 
@@ -511,7 +512,7 @@ protected:
           auto status =
               esp_ble_gattc_read_char(ble_host_->gattc_if, this->conn_id_, this->services[i]->char_handle_, ESP_GATT_AUTH_REQ_NONE);
           if (status != ESP_GATT_OK) {
-            ESP_LOGW(TAG, "[%s] read_char error sending read request, status (%d)", to_string(this->address_).c_str(), status);
+            ESP_LOGW(TAG, "[%s] read_char error sending read request, status (%d)", to_str(this->address_).c_str(), status);
             this->services[i]->char_handle_ = ESP_GATT_ILLEGAL_HANDLE;
           }
         }
@@ -520,8 +521,8 @@ protected:
       offset++;
     }
     if (this->services[i]->char_handle_ == ESP_GATT_ILLEGAL_HANDLE) {
-      ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT char (%s) not found", to_string(this->address_).c_str(),
-               this->services[i]->char_uuid_.to_string().c_str());
+      ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT char (%s) not found", to_str(this->address_).c_str(),
+               this->services[i]->char_uuid_.to_str().c_str());
       report_error();
     }
     return true;

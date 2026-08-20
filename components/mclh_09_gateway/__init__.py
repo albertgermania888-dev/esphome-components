@@ -1,4 +1,5 @@
 import esphome.codegen as cg
+from esphome.core import entity_helpers
 import esphome.config_validation as cv
 from esphome.components import myhomeiot_ble_host, esp32_ble_tracker
 from esphome import const, automation
@@ -52,6 +53,19 @@ async def to_code(config):
     var = cg.new_Pvariable(config[CONF_ID], addr_list, config[CONF_INTERVAL], config[CONF_ERROR_COUNTING], config[CONF_RAW_SOIL])
     ble_host = await cg.get_variable(config[CONF_BLE_HOST])
     cg.add(var.set_ble_host(ble_host))
+
+    batt_fields = (entity_helpers.register_device_class("battery") << 0) | (entity_helpers.register_unit_of_measurement("%") << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    temp_fields = (entity_helpers.register_device_class("temperature") << 0) | (entity_helpers.register_unit_of_measurement("°C") << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    lumi_fields = (entity_helpers.register_device_class("illuminance") << 0) | (entity_helpers.register_unit_of_measurement("lx") << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    soil_fields = (0 << 0) | (0 << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    if not config[CONF_RAW_SOIL]:
+        soil_fields = (entity_helpers.register_device_class("moisture") << 0) | (entity_helpers.register_unit_of_measurement("%") << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    humi_fields = (entity_helpers.register_device_class("humidity") << 0) | (entity_helpers.register_unit_of_measurement("%") << 8) | (0 << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    rssi_fields = (entity_helpers.register_device_class("signal_strength") << 0) | (entity_helpers.register_unit_of_measurement("dBm") << 8) | (entity_helpers.register_icon("mdi:signal") << 16) | (0 << 24) | (0 << 25) | (2 << 26)
+    error_fields = (0 << 0) | (0 << 8) | (entity_helpers.register_icon("mdi:alert-circle") << 16) | (0 << 24) | (0 << 25) | (2 << 26)
+    alert_fields = (0 << 0) | (0 << 8) | (entity_helpers.register_icon("mdi:alarm-light") << 16) | (0 << 24) | (0 << 25) | (0 << 26)
+    cg.add(var.set_sensor_fields(batt_fields, temp_fields, lumi_fields, soil_fields, humi_fields, rssi_fields, error_fields, alert_fields))
+
     await cg.register_component(var, config)
 
 @automation.register_action(
