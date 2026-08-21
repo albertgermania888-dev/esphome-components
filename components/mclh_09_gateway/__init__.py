@@ -66,7 +66,17 @@ async def to_code(config):
     alert_fields = (0 << 0) | (0 << 8) | (entity_helpers.register_icon("mdi:alarm-light") << 16) | (0 << 24) | (0 << 25) | (0 << 26)
     cg.add(var.set_sensor_fields(batt_fields, temp_fields, lumi_fields, soil_fields, humi_fields, rssi_fields, error_fields, alert_fields))
 
+    from esphome.core import CORE
+    num_sensors = len(config[CONF_MAC_ADDRESS]) * 7
+    CORE.platform_counts.setdefault("sensor", 0)
+    CORE.platform_counts["sensor"] += num_sensors
+
+    num_selects = len(config[CONF_MAC_ADDRESS]) * 1
+    CORE.platform_counts.setdefault("select", 0)
+    CORE.platform_counts["select"] += num_selects
+
     await cg.register_component(var, config)
+
 
 @automation.register_action(
     "mclh_09_gateway.force_update", Mclh09GatewayForceUpdateAction, FORCE_UPDATE_ACTION_SCHEMA, synchronous=True

@@ -52,7 +52,7 @@ struct AppAccess : public esphome::Application {
   template <typename T>
   void _register_sensor(T *obj, const char *name, uint32_t hash, uint32_t fields) {
 #ifdef USE_SENSOR
-    ((EntityAccess*)obj)->configure_entity_(name, hash, fields);
+    ((EntityAccess*)(esphome::EntityBase*)obj)->configure_entity_(name, hash, fields);
     this->sensors_.push_back(obj);
 #endif
   }
@@ -60,7 +60,7 @@ struct AppAccess : public esphome::Application {
   template <typename T>
   void _register_select(T *obj, const char *name, uint32_t hash, uint32_t fields) {
 #ifdef USE_SELECT
-    ((EntityAccess*)obj)->configure_entity_(name, hash, fields);
+    ((EntityAccess*)(esphome::EntityBase*)obj)->configure_entity_(name, hash, fields);
     this->selects_.push_back(obj);
 #endif
   }
