@@ -174,7 +174,7 @@ async def to_code(config):
         await automation.build_automation(trigger, [(cg.uint32, "error_count"), (MyHomeIOT_BLEClient2ConstRef, "xthis")], conf)
 
 @automation.register_action(
-    "myhomeiot_ble_client2.force_update", MyHomeIOT_BLEClientForceUpdateAction, FORCE_UPDATE_ACTION_SCHEMA
+    "myhomeiot_ble_client2.force_update", MyHomeIOT_BLEClientForceUpdateAction, FORCE_UPDATE_ACTION_SCHEMA, synchronous=True
 )
 async def ble_write_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])

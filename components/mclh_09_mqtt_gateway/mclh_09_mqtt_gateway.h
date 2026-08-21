@@ -67,6 +67,10 @@ Select ALERT{"alert", "Alert", "mdi:alarm-light", alert_set_suffix, alert_state_
 std::vector<Sensor *> mclh09_sensors;
 std::vector<Select *> mclh09_selects{&ALERT};
 
+
+struct AppAccess : public esphome::Application {
+  using esphome::Application::register_component_;
+};
 class Mclh09Device : public Component {
 public:
   Mclh09Device(mqtt::MQTTClientComponent *mqtt_client, myhomeiot_ble_host::MyHomeIOT_BLEHost *ble_host, const std::string &topic_prefix,
@@ -76,7 +80,7 @@ public:
 
     snprintf_P(temp_buffer, sizeof(temp_buffer), PSTR("mclh09_%012llx"), address);
     this->id = std::string(temp_buffer);
-    snprintf_P(temp_buffer, sizeof(temp_buffer), PSTR("MCLH-09 %06x"), (uint32_t)address & 0xFFFFFF);
+    snprintf_P(temp_buffer, sizeof(temp_buffer), PSTR("MCLH-09 %06x"), (unsigned int)((uint32_t)address & 0xFFFFFF));
     this->name = std::string(temp_buffer);
 
     const char *prefix = topic_prefix.c_str();
@@ -184,7 +188,7 @@ public:
 
     //set_component_source(id.c_str());
     ble_host->register_ble_client(this->ble_client_);
-    App.register_component(this->ble_client_);
+    ((AppAccess*)&App)->register_component_(this->ble_client_);
   }
 
   void dump_config() override {
@@ -262,7 +266,7 @@ public:
       snprintf_P(temp_buffer, sizeof(temp_buffer),
                  PSTR("{\"%s\":%d, \"%s\":%.1f, \"%s\":%.0f, \"%s\":%.0f, \"%s\":%.0f, \"%s\":%d, \"%s\":%d, \"time\":%u}"), BATT.id,
                  this->batt, TEMP.id, this->temp, LUMI.id, this->lumi, SOIL.id, this->soil, HUMI.id, this->humi, RSSI.id, this->rssi,
-                 ERRORS.id, this->error_count, millis() / 1000);
+                 ERRORS.id, (int)this->error_count, (unsigned int)(millis() / 1000));
       ESP_LOGD(this->id.c_str(), "Sending sensor data: '%s'", temp_buffer);
       if (!this->mqtt_client_->publish(this->state_topic, temp_buffer, strlen(temp_buffer))) {
         ESP_LOGE(this->id.c_str(), "Failed to send sensor data '%s' into topic '%s'", temp_buffer, this->state_topic.c_str());
@@ -538,16 +542,16 @@ public:
       uint64_t addr = x.address_uint64();
       for (auto device : devices_)
         if (device->get_address() == addr) {
-          ESP_LOGD(TAG, "Parsed already found MCLH-09 '%s'", x.address_str().c_str());
+          ESP_LOGD(TAG, "Parsed already found MCLH-09 '%s'", ([&]()->std::string{char buf[18]; x.address_str_to(buf); return std::string(buf);}()).c_str());
           return;
         }
-      ESP_LOGI(TAG, "Parsed new MCLH-09 '%s'", x.address_str().c_str());
+      ESP_LOGI(TAG, "Parsed new MCLH-09 '%s'", ([&]()->std::string{char buf[18]; x.address_str_to(buf); return std::string(buf);}()).c_str());
       add_device(addr);
     }
   }
 
   void set_update_interval(uint32_t update_interval) {
-    ESP_LOGD(TAG, "Setting update interval to %dms", update_interval);
+    ESP_LOGD(TAG, "Setting update interval to %ums", (unsigned int)update_interval);
     this->update_interval_ = update_interval;
     for (auto device : devices_)
       device->set_update_interval(update_interval);
@@ -563,7 +567,7 @@ private:
   void add_device(uint64_t address) {
     Mclh09Device *new_device = new Mclh09Device(this->mqtt_client_, this->ble_host_, this->topic_prefix_, this->update_interval_, address);
     devices_.push_back(new_device);
-    App.register_component(new_device);
+    ((AppAccess*)&App)->register_component_(new_device);
   }
 };
 
