@@ -17,8 +17,8 @@
 namespace esphome {
 namespace mclh_09_gateway {
 
-#define SENSOR_ID "mclh09_%03d_%s"
-#define SENSOR_NAME "mclh09_%03d %s"
+#define SENSOR_ID "mclh09_%s_%s"
+#define SENSOR_NAME "mclh09_%s %s"
 const char *TAG = "mclh-09";
 
 class AlertSelect : public select::Select, public Component {
@@ -66,26 +66,28 @@ struct AppAccess : public esphome::Application {
   }
 };
 class Mclh09Gateway : public Component {
+public:
   void setup() override {
     char buffer[64];
     for (size_t i = 0; i < device_count; i++) {
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "batt");
+      std::string mac_str = this->to_string(mac_addresses_[i]);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "batt");
       ((AppAccess*)&App)->_register_sensor(batt_sensor[i], strdup(buffer), 0, batt_fields);
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "temp");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "temp");
       ((AppAccess*)&App)->_register_sensor(temp_sensor[i], strdup(buffer), 0, temp_fields);
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "lumi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "lumi");
       ((AppAccess*)&App)->_register_sensor(lumi_sensor[i], strdup(buffer), 0, lumi_fields);
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "soil");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "soil");
       ((AppAccess*)&App)->_register_sensor(soil_sensor[i], strdup(buffer), 0, soil_fields);
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "humi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "humi");
       ((AppAccess*)&App)->_register_sensor(humi_sensor[i], strdup(buffer), 0, humi_fields);
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "rssi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "rssi");
       ((AppAccess*)&App)->_register_sensor(rssi_sensor[i], strdup(buffer), 0, rssi_fields);
       if (error_sensor != nullptr && error_sensor[i] != nullptr) {
-        snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "errors");
+        snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "errors");
         ((AppAccess*)&App)->_register_sensor(error_sensor[i], strdup(buffer), 0, error_fields);
       }
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "alert select");
       ((AppAccess*)&App)->_register_select(alert_select[i], strdup(buffer), 0, alert_fields);
 
       alert_select[i]->setup();
@@ -133,11 +135,13 @@ public:
     // создаём связи между ble-клиентами и сенсорами и регистрируем всё в Esphome
     char buffer[64];
     for (size_t i = 0; i < device_count; i++) {
+      std::string mac_str = this->to_string(mac_addresses_[i]);
+      std::string mac_id_str = this->to_id_string(mac_addresses_[i]);
       // датчик Battery Level
       batt_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "batt");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "batt");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "batt");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "batt");
 #endif
       batt_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       batt_sensor[i]->set_accuracy_decimals(0);
@@ -146,9 +150,9 @@ public:
 
       // датчик температуры
       temp_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "temp");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "temp");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "temp");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "temp");
 #endif
       temp_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       temp_sensor[i]->set_accuracy_decimals(1);
@@ -158,9 +162,9 @@ public:
 
       // датчик освещения
       lumi_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "lumi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "lumi");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "lumi");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "lumi");
 #endif
       lumi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       lumi_sensor[i]->set_accuracy_decimals(0);
@@ -171,9 +175,9 @@ public:
 
       // датчик влажности почвы
       soil_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "soil");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "soil");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "soil");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "soil");
 #endif
       soil_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       if (!raw_soil) {
@@ -186,9 +190,9 @@ public:
 
       // датчик влажности
       humi_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "humi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "humi");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "humi");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "humi");
 #endif
       humi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       humi_sensor[i]->set_accuracy_decimals(0);
@@ -198,9 +202,9 @@ public:
 
       // датчик уровня сигнала
       rssi_sensor[i] = new sensor::Sensor();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "rssi");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "rssi");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "rssi");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "rssi");
 #endif
       rssi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       rssi_sensor[i]->set_accuracy_decimals(0);
@@ -210,9 +214,9 @@ public:
       // датчик количества ошибок
       if (error_counting) {
         error_sensor[i] = new sensor::Sensor();
-        snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "errors");
+        snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "errors");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-        snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "errors");
+        snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "errors");
 #endif
         error_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         error_sensor[i]->set_accuracy_decimals(0);
@@ -223,9 +227,9 @@ public:
       // alert select
       alert_value[i] = 0;
       alert_select[i] = new AlertSelect();
-      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, mac_str.c_str(), "alert select");
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
-      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "alert_select");
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, mac_id_str.c_str(), "alert_select");
 #endif
 
 
@@ -356,6 +360,13 @@ protected:
   std::string to_string(uint64_t address) const {
     char buffer[20];
     sprintf(buffer, "%02X:%02X:%02X:%02X:%02X:%02X", (uint8_t)(address >> 40), (uint8_t)(address >> 32), (uint8_t)(address >> 24),
+            (uint8_t)(address >> 16), (uint8_t)(address >> 8), (uint8_t)(address >> 0));
+    return std::string(buffer);
+  }
+
+  std::string to_id_string(uint64_t address) const {
+    char buffer[20];
+    sprintf(buffer, "%02x_%02x_%02x_%02x_%02x_%02x", (uint8_t)(address >> 40), (uint8_t)(address >> 32), (uint8_t)(address >> 24),
             (uint8_t)(address >> 16), (uint8_t)(address >> 8), (uint8_t)(address >> 0));
     return std::string(buffer);
   }
