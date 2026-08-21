@@ -43,28 +43,46 @@ private:
   ESPPreferenceObject pref_;
 };
 
+
+struct AppAccess : public esphome::Application {
+  template <typename T>
+  void _register_sensor(T *obj, const char *name, uint32_t hash, uint32_t fields) {
+#ifdef USE_SENSOR
+    obj->configure_entity_(name, hash, fields);
+    this->sensors_.push_back(obj);
+#endif
+  }
+
+  template <typename T>
+  void _register_select(T *obj, const char *name, uint32_t hash, uint32_t fields) {
+#ifdef USE_SELECT
+    obj->configure_entity_(name, hash, fields);
+    this->selects_.push_back(obj);
+#endif
+  }
+};
 class Mclh09Gateway : public Component {
   void setup() override {
     char buffer[64];
     for (size_t i = 0; i < device_count; i++) {
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "batt");
-      App.register_sensor(batt_sensor[i], strdup(buffer), 0, batt_fields);
+      ((AppAccess*)&App)->_register_sensor(batt_sensor[i], strdup(buffer), 0, batt_fields);
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "temp");
-      App.register_sensor(temp_sensor[i], strdup(buffer), 0, temp_fields);
+      ((AppAccess*)&App)->_register_sensor(temp_sensor[i], strdup(buffer), 0, temp_fields);
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "lumi");
-      App.register_sensor(lumi_sensor[i], strdup(buffer), 0, lumi_fields);
+      ((AppAccess*)&App)->_register_sensor(lumi_sensor[i], strdup(buffer), 0, lumi_fields);
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "soil");
-      App.register_sensor(soil_sensor[i], strdup(buffer), 0, soil_fields);
+      ((AppAccess*)&App)->_register_sensor(soil_sensor[i], strdup(buffer), 0, soil_fields);
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "humi");
-      App.register_sensor(humi_sensor[i], strdup(buffer), 0, humi_fields);
+      ((AppAccess*)&App)->_register_sensor(humi_sensor[i], strdup(buffer), 0, humi_fields);
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "rssi");
-      App.register_sensor(rssi_sensor[i], strdup(buffer), 0, rssi_fields);
+      ((AppAccess*)&App)->_register_sensor(rssi_sensor[i], strdup(buffer), 0, rssi_fields);
       if (error_sensor != nullptr && error_sensor[i] != nullptr) {
         snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "errors");
-        App.register_sensor(error_sensor[i], strdup(buffer), 0, error_fields);
+        ((AppAccess*)&App)->_register_sensor(error_sensor[i], strdup(buffer), 0, error_fields);
       }
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
-      App.register_select(alert_select[i], strdup(buffer), 0, alert_fields);
+      ((AppAccess*)&App)->_register_select(alert_select[i], strdup(buffer), 0, alert_fields);
 
       alert_select[i]->setup();
       ble_client[i]->setup();

@@ -60,7 +60,7 @@ async def to_code(config):
     await cg.register_component(var, config)
 
 @automation.register_action(
-    "mclh_09_gateway.force_update", Mclh09GatewayForceUpdateAction, FORCE_UPDATE_ACTION_SCHEMA
+    "mclh_09_gateway.force_update", Mclh09GatewayForceUpdateAction, FORCE_UPDATE_ACTION_SCHEMA, synchronous=True
 )
 async def ble_write_to_code(config, action_id, template_arg, args):
     parent = await cg.get_variable(config[CONF_ID])
