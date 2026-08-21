@@ -1,3 +1,4 @@
+#include <inttypes.h>
 #pragma once
 
 #ifdef USE_ESP32
@@ -21,10 +22,8 @@ namespace mclh_09_gateway {
 const char *TAG = "mclh-09";
 
 class AlertSelect : public select::Select, public Component {
-
+public:
   void setup() override {
-    set_disabled_by_default(false);
-    set_icon("mdi:alarm-light");
     traits.set_options({"Off", "Red (once)", "Green (once)", "Red + green (once)", "Red (every update)", "Green (every update)",
                         "Red + green (every update)", "Green (always)"});
     this->pref_ = global_preferences->make_preference<size_t>(this->get_object_id_hash());
@@ -45,7 +44,52 @@ private:
 };
 
 class Mclh09Gateway : public Component {
+  void setup() override {
+    char buffer[64];
+    for (size_t i = 0; i < device_count; i++) {
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "batt");
+      App.register_sensor(batt_sensor[i], strdup(buffer), 0, batt_fields);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "temp");
+      App.register_sensor(temp_sensor[i], strdup(buffer), 0, temp_fields);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "lumi");
+      App.register_sensor(lumi_sensor[i], strdup(buffer), 0, lumi_fields);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "soil");
+      App.register_sensor(soil_sensor[i], strdup(buffer), 0, soil_fields);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "humi");
+      App.register_sensor(humi_sensor[i], strdup(buffer), 0, humi_fields);
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "rssi");
+      App.register_sensor(rssi_sensor[i], strdup(buffer), 0, rssi_fields);
+      if (error_sensor != nullptr && error_sensor[i] != nullptr) {
+        snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "errors");
+        App.register_sensor(error_sensor[i], strdup(buffer), 0, error_fields);
+      }
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
+      App.register_select(alert_select[i], strdup(buffer), 0, alert_fields);
 
+      alert_select[i]->setup();
+      ble_client[i]->setup();
+    }
+  }
+
+
+  void loop() override {
+    for (size_t i = 0; i < device_count; i++) {
+      alert_select[i]->loop();
+      ble_client[i]->loop();
+    }
+  }
+public:
+  uint32_t batt_fields{0}, temp_fields{0}, lumi_fields{0}, soil_fields{0}, humi_fields{0}, rssi_fields{0}, error_fields{0}, alert_fields{0};
+  void set_sensor_fields(uint32_t batt, uint32_t temp, uint32_t lumi, uint32_t soil, uint32_t humi, uint32_t rssi, uint32_t error, uint32_t alert) {
+    batt_fields = batt;
+    temp_fields = temp;
+    lumi_fields = lumi;
+    soil_fields = soil;
+    humi_fields = humi;
+    rssi_fields = rssi;
+    error_fields = error;
+    alert_fields = alert;
+  }
 public:
   Mclh09Gateway(const std::vector<uint64_t> &mac_addresses, uint32_t update_interval = 3600000, bool error_counting = false, bool raw_soil = false) {
     mac_addresses_ = mac_addresses;
@@ -70,144 +114,103 @@ public:
       // датчик Battery Level
       batt_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "batt");
-      batt_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "batt");
-      batt_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      batt_sensor[i]->set_disabled_by_default(false);
-      batt_sensor[i]->set_device_class("battery");
       batt_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
-      batt_sensor[i]->set_unit_of_measurement("%");
       batt_sensor[i]->set_accuracy_decimals(0);
       batt_sensor[i]->set_force_update(false);
-      App.register_sensor(batt_sensor[i]);
+
 
       // датчик температуры
       temp_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "temp");
-      temp_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "temp");
-      temp_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      temp_sensor[i]->set_disabled_by_default(false);
-      temp_sensor[i]->set_device_class("temperature");
       temp_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
-      temp_sensor[i]->set_unit_of_measurement("°C");
       temp_sensor[i]->set_accuracy_decimals(1);
       temp_sensor[i]->set_force_update(false);
       // temp_sensor[i]->set_filters({new sensor::CalibrateLinearFilter(0.09907442858106243f, -37.09368850461943f)});
-      App.register_sensor(temp_sensor[i]);
+
 
       // датчик освещения
       lumi_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "lumi");
-      lumi_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "lumi");
-      lumi_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      lumi_sensor[i]->set_disabled_by_default(false);
-      lumi_sensor[i]->set_device_class("illuminance");
       lumi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
-      lumi_sensor[i]->set_unit_of_measurement("lx");
       lumi_sensor[i]->set_accuracy_decimals(0);
       lumi_sensor[i]->set_force_update(false);
       // lumi_sensor[i]->set_filters({new sensor::CalibrateLinearFilter(96.48563036227942f, -13913.813751854166f),
       //                              new sensor::LambdaFilter([=](float x) -> optional<float> { return limit_value(x, 0, x); })});
-      App.register_sensor(lumi_sensor[i]);
+
 
       // датчик влажности почвы
       soil_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "soil");
-      soil_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "soil");
-      soil_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      soil_sensor[i]->set_disabled_by_default(false);
       soil_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
       if (!raw_soil) {
-        soil_sensor[i]->set_device_class("moisture");
-        soil_sensor[i]->set_unit_of_measurement("%");
       }
       soil_sensor[i]->set_accuracy_decimals(0);
       soil_sensor[i]->set_force_update(false);
       // soil_sensor[i]->set_filters({new sensor::CalibrateLinearFilter(0.17831784356979544f, -165.0581022116415f),
       //                              new sensor::LambdaFilter([=](float x) -> optional<float> { return limit_value(x, 0, 60); })});
-      App.register_sensor(soil_sensor[i]);
+
 
       // датчик влажности
       humi_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "humi");
-      humi_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "humi");
-      humi_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      humi_sensor[i]->set_disabled_by_default(false);
-      humi_sensor[i]->set_device_class("humidity");
       humi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
-      humi_sensor[i]->set_unit_of_measurement("%");
       humi_sensor[i]->set_accuracy_decimals(0);
       humi_sensor[i]->set_force_update(false);
       // humi_sensor[i]->set_filters({new sensor::LambdaFilter([=](float x) -> optional<float> { return x / 13.0; })});
-      App.register_sensor(humi_sensor[i]);
+
 
       // датчик уровня сигнала
       rssi_sensor[i] = new sensor::Sensor();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "rssi");
-      rssi_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "rssi");
-      rssi_sensor[i]->set_object_id(strdup(buffer));
 #endif
-      rssi_sensor[i]->set_disabled_by_default(false);
-      rssi_sensor[i]->set_device_class("signal_strength");
-      rssi_sensor[i]->set_icon("mdi:signal");
-      rssi_sensor[i]->set_entity_category(ENTITY_CATEGORY_DIAGNOSTIC);
       rssi_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
-      rssi_sensor[i]->set_unit_of_measurement("dBm");
       rssi_sensor[i]->set_accuracy_decimals(0);
       rssi_sensor[i]->set_force_update(false);
-      App.register_sensor(rssi_sensor[i]);
+
 
       // датчик количества ошибок
       if (error_counting) {
         error_sensor[i] = new sensor::Sensor();
         snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "errors");
-        error_sensor[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
         snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "errors");
-        error_sensor[i]->set_object_id(strdup(buffer));
 #endif
-        error_sensor[i]->set_disabled_by_default(false);
-        error_sensor[i]->set_icon("mdi:alert-circle");
-        error_sensor[i]->set_entity_category(ENTITY_CATEGORY_DIAGNOSTIC);
         error_sensor[i]->set_state_class(sensor::STATE_CLASS_MEASUREMENT);
         error_sensor[i]->set_accuracy_decimals(0);
         error_sensor[i]->set_force_update(false);
-        App.register_sensor(error_sensor[i]);
+
       }
 
       // alert select
       alert_value[i] = 0;
       alert_select[i] = new AlertSelect();
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
-      alert_select[i]->set_name(strdup(buffer));
 #if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "alert_select");
-      alert_select[i]->set_object_id(strdup(buffer));
 #endif
-      App.register_component(alert_select[i]);
-      App.register_select(alert_select[i]);
+
 
       // ble-клиент
       ble_client[i] = new myhomeiot_ble_client2::MyHomeIOT_BLEClient2();
       ble_client[i]->set_address(mac_addresses_[i]);
       ble_client[i]->set_update_interval(update_interval);
-      App.register_component(ble_client[i]);
 
       // сервисы ble-клиента
       myhomeiot_ble_client2::MyHomeIOT_BLEClientService *serv_bat = new myhomeiot_ble_client2::MyHomeIOT_BLEClientService();
@@ -254,11 +257,11 @@ public:
       ble_client[i]->add_service(serv_alert);
 
       // автоматизации
-      (new Automation<std::string, size_t>(new select::SelectStateTrigger(alert_select[i])))
+      (new Automation<esphome::StringRef, size_t>(new select::SelectStateTrigger(alert_select[i])))
 #if (__cplusplus >= 202002L)
-          ->add_actions({new LambdaAction<std::string, size_t>([=, this](std::string x, size_t sz) -> void { ble_client[i]->force_update(); })});
+          ->add_actions({new LambdaAction<esphome::StringRef, size_t>([=, this](esphome::StringRef x, size_t sz) -> void { ble_client[i]->force_update(); })});
 #else
-          ->add_actions({new LambdaAction<std::string, size_t>([=](std::string x, size_t sz) -> void { ble_client[i]->force_update(); })});
+          ->add_actions({new LambdaAction<esphome::StringRef, size_t>([=](esphome::StringRef x, size_t sz) -> void { ble_client[i]->force_update(); })});
 #endif
 
       (new Automation<int, const myhomeiot_ble_client2::MyHomeIOT_BLEClient2 &>(
@@ -322,7 +325,7 @@ public:
   }
 
   void set_update_interval(uint32_t update_interval) {
-    ESP_LOGD(TAG, "Setting update interval to %dms", update_interval);
+    ESP_LOGD(TAG, "Setting update interval to %" PRIu32 "ms", update_interval);
     for (size_t i = 0; i < device_count; i++)
       ble_client[i]->set_update_interval(update_interval);
   }
