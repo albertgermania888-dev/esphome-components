@@ -2,6 +2,11 @@
 
 #include <esp_gap_ble_api.h>
 #include "esphome/core/log.h"
+
+#ifndef UUID_TO_STR
+#define UUID_TO_STR(uuid) ([&]() -> std::string { char __b[37]; (uuid).to_str(__b); return std::string(__b); }())
+#endif
+
 #include "myhomeiot_ble_client.h"
 
 namespace esphome {
@@ -16,8 +21,8 @@ void MyHomeIOT_BLEClient::setup() {
 void MyHomeIOT_BLEClient::dump_config() {
   ESP_LOGCONFIG(TAG, "MyHomeIOT BLE Client");
   ESP_LOGCONFIG(TAG, "  MAC address: %s", to_string(this->address_).c_str());
-  ESP_LOGCONFIG(TAG, "  Service UUID: %s", this->service_uuid_.to_string().c_str());
-  ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", this->char_uuid_.to_string().c_str());
+  ESP_LOGCONFIG(TAG, "  Service UUID: %s", UUID_TO_STR(this->service_uuid_).c_str());
+  ESP_LOGCONFIG(TAG, "  Characteristic UUID: %s", UUID_TO_STR(this->char_uuid_).c_str());
   LOG_UPDATE_INTERVAL(this);
 }
 
@@ -66,7 +71,7 @@ bool MyHomeIOT_BLEClient::parse_device(const esp32_ble_tracker::ESPBTDevice &dev
     || device.address_uint64() != this->address_)
     return false;
 
-  ESP_LOGD(TAG, "[%s] Found device", device.address_str().c_str());
+  ESP_LOGD(TAG, "[%s] Found device", ([&]()->std::string{char buf[18]; device.address_str_to(buf); return std::string(buf);}()).c_str());
   memcpy(this->remote_bda_, device.address(), sizeof(this->remote_bda_));
   this->state_ = MYHOMEIOT_DISCOVERED;
   return true;
@@ -127,7 +132,7 @@ bool MyHomeIOT_BLEClient::gattc_event_handler(esp_gattc_cb_event_t event, esp_ga
         : esp32_ble_tracker::ESPBTUUID::from_raw(param->search_res.srvc_id.uuid.uuid.uuid128);
       if (uuid == this->service_uuid_) {
         ESP_LOGD(TAG, "[%s] SEARCH_RES_EVT service (%s) found", to_string(this->address_).c_str(),
-          this->service_uuid_.to_string().c_str());
+          UUID_TO_STR(this->service_uuid_).c_str());
         this->start_handle_ = param->search_res.start_handle;
         this->end_handle_ = param->search_res.end_handle;
       }
@@ -141,7 +146,7 @@ bool MyHomeIOT_BLEClient::gattc_event_handler(esp_gattc_cb_event_t event, esp_ga
       if (this->start_handle_ == ESP_GATT_ILLEGAL_HANDLE)
       {
         ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT service (%s) not found", to_string(this->address_).c_str(),
-          this->service_uuid_.to_string().c_str());
+          UUID_TO_STR(this->service_uuid_).c_str());
         report_error();
         break;
       }
@@ -164,7 +169,7 @@ bool MyHomeIOT_BLEClient::gattc_event_handler(esp_gattc_cb_event_t event, esp_ga
 
         if (this->char_uuid_ == esp32_ble_tracker::ESPBTUUID::from_uuid(result.uuid)) {
           ESP_LOGD(TAG, "[%s] SEARCH_CMPL_EVT char (%s) found", to_string(this->address_).c_str(),
-            this->char_uuid_.to_string().c_str());
+            UUID_TO_STR(this->char_uuid_).c_str());
           this->char_handle_ = result.char_handle;
 
           if (auto status = esp_ble_gattc_read_char(ble_host_->gattc_if, this->conn_id_, 
@@ -180,7 +185,7 @@ bool MyHomeIOT_BLEClient::gattc_event_handler(esp_gattc_cb_event_t event, esp_ga
       if (this->char_handle_ == ESP_GATT_ILLEGAL_HANDLE)
       {
         ESP_LOGE(TAG, "[%s] SEARCH_CMPL_EVT char (%s) not found", to_string(this->address_).c_str(),
-          this->char_uuid_.to_string().c_str());
+          UUID_TO_STR(this->char_uuid_).c_str());
         report_error();
       }
       break;
