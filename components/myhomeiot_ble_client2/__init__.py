@@ -105,17 +105,16 @@ def versiontuple(v):
     return tuple(map(int, (v.split("."))))
 
 async def to_code(config):
-    if CONF_MAC_ADDRESS not in config:
-        _LOGGER.warning('No MAC-address. Component will be ignored')
-        return
+
 
     var = cg.new_Pvariable(config[CONF_ID])
 
     await cg.register_component(var, config)
     await myhomeiot_ble_host.register_ble_client(var, config)
-    cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
+    if CONF_MAC_ADDRESS in config:
+        cg.add(var.set_address(config[CONF_MAC_ADDRESS].as_hex))
 
-    for service in config[CONF_SERVICES]:
+    for service in config.get(CONF_SERVICES, []):
         srv = cg.new_Pvariable(service[CONF_ID])
         if len(service[CONF_SERVICE_UUID]) == len(esp32_ble_tracker.bt_uuid16_format):
           cg.add(srv.set_service_uuid16(esp32_ble_tracker.as_hex(service[CONF_SERVICE_UUID])))
