@@ -65,7 +65,97 @@ struct AppAccess : public esphome::Application {
 #endif
   }
 };
-class Mclh09Gateway : public Component {
+
+class MacSelect : public select::Select, public Component {
+public:
+  void setup() override {
+    this->pref_ = global_preferences->make_preference<uint64_t>(this->get_object_id_hash());
+    uint64_t addr = 0;
+    if (this->pref_.load(&addr) && addr != 0) {
+      char buf[20];
+      sprintf(buf, "%02X:%02X:%02X:%02X:%02X:%02X", (uint8_t)(addr >> 40), (uint8_t)(addr >> 32), (uint8_t)(addr >> 24),
+              (uint8_t)(addr >> 16), (uint8_t)(addr >> 8), (uint8_t)(addr >> 0));
+      std::string val = std::string(buf);
+
+      this->add_discovered_mac(val);
+      this->publish_state(val);
+      if (this->ble_client_) {
+        this->ble_client_->set_address(addr);
+      }
+    } else {
+      this->publish_state("None");
+    }
+  }
+
+  void control(const std::string &value) override {
+    if (value == "None") {
+      uint64_t addr = 0;
+      this->pref_.save(&addr);
+      this->publish_state(value);
+      if (this->ble_client_) this->ble_client_->set_address(addr);
+    } else {
+      uint64_t addr = 0;
+      unsigned int a[6];
+      if (std::sscanf(value.c_str(), "%x:%x:%x:%x:%x:%x", &a[5], &a[4], &a[3], &a[2], &a[1], &a[0]) == 6) {
+        addr = ((uint64_t)a[5] << 40) | ((uint64_t)a[4] << 32) | ((uint64_t)a[3] << 24) |
+               ((uint64_t)a[2] << 16) | ((uint64_t)a[1] << 8) | (uint64_t)a[0];
+        this->pref_.save(&addr);
+        this->publish_state(value);
+        if (this->ble_client_) this->ble_client_->set_address(addr);
+      }
+    }
+  }
+
+  void set_ble_client(myhomeiot_ble_client2::MyHomeIOT_BLEClient2 *ble_client) {
+    this->ble_client_ = ble_client;
+  }
+
+  std::vector<std::string> options_{"None"};
+  void update_options() {
+    std::vector<const char*> c_options;
+    for (const auto& opt : this->options_) {
+        c_options.push_back(opt.c_str());
+    }
+    // We can cast std::vector to FixedVector if they are memory-compatible? No.
+    // Let's just use `esphome::select::SelectTraits::set_options` with initializer_list or std::vector
+    // Wait, the error message literally says: candidate is `void set_options(const std::vector<std::string> &options);` in older versions.
+    // In newer version it's `void set_options(const std::vector<std::string> &)`? No, the error says:
+    // candidate: 'void esphome::select::SelectTraits::set_options(const std::initializer_list<const char*>&)'
+    // candidate: 'void esphome::select::SelectTraits::set_options(const esphome::FixedVector<const char*>&)'
+    // So only these two!
+    // Let's use `FixedVector` correctly. But how to construct it? `FixedVector` does NOT allocate memory, it takes a pointer and a size.
+    // Wait, let's check `FixedVector` constructors in ESPHome.
+    // Note: candidate: 'esphome::FixedVector<T>::FixedVector(std::initializer_list<_Tp>) [with T = const char*]'
+    // Note: candidate: 'constexpr esphome::FixedVector<T>::FixedVector() [with T = const char*]'
+    // So we can do:
+    // FixedVector<const char*> fv;
+    // But wait, does it have a capacity? `FixedVector` has `capacity_`. If we default construct it, capacity is 0!
+    // So `push_back` will crash or do nothing!
+    // How do we set capacity?
+    // Wait! In `select_traits.h`, maybe there's a `set_options` that takes `std::vector<std::string>` and ESPHome 2026.8.2 removed it?
+    // What if we just update the dropdown in HA differently? ESPHome Select options are statically defined in YAML usually.
+    // If we want to change it at runtime, we might not be able to easily if FixedVector requires static arrays.
+
+    // Instead of dynamic options, what if we just use a Text component as originally suggested?
+    // "Сделать MAC-адреса настраиваемыми через сущности ESPHome в Home Assistant ... чтобы в интерфейсе проходило сканирование Bluetooth устройств и я выбирал нужные"
+    // I can make the options list huge, but that's ugly.
+
+    // Actually, I can construct an initializer_list! No, initializer_list can only be constructed from a braced-init-list at compile time.
+  }
+
+  void add_discovered_mac(const std::string &mac) {
+    if (std::find(this->options_.begin(), this->options_.end(), mac) == this->options_.end()) {
+      this->options_.push_back(mac);
+      this->update_options();
+    }
+  }
+
+private:
+  ESPPreferenceObject pref_;
+  myhomeiot_ble_client2::MyHomeIOT_BLEClient2 *ble_client_{nullptr};
+};
+
+class Mclh09Gateway : public Component, public esp32_ble_tracker::ESPBTDeviceListener {
   void setup() override {
     char buffer[64];
     for (size_t i = 0; i < device_count; i++) {
@@ -88,7 +178,11 @@ class Mclh09Gateway : public Component {
       snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "alert select");
       ((AppAccess*)&App)->_register_select(alert_select[i], strdup(buffer), 0, alert_fields);
 
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "MAC");
+      ((AppAccess*)&App)->_register_select(mac_select[i], strdup(buffer), 0, mac_fields);
+
       alert_select[i]->setup();
+      mac_select[i]->setup();
       ble_client[i]->setup();
     }
   }
@@ -101,8 +195,9 @@ class Mclh09Gateway : public Component {
     }
   }
 public:
-  uint32_t batt_fields{0}, temp_fields{0}, lumi_fields{0}, soil_fields{0}, humi_fields{0}, rssi_fields{0}, error_fields{0}, alert_fields{0};
-  void set_sensor_fields(uint32_t batt, uint32_t temp, uint32_t lumi, uint32_t soil, uint32_t humi, uint32_t rssi, uint32_t error, uint32_t alert) {
+  uint32_t batt_fields{0}, temp_fields{0}, lumi_fields{0}, soil_fields{0}, humi_fields{0}, rssi_fields{0}, error_fields{0}, alert_fields{0}, mac_fields{0};
+  void set_sensor_fields(uint32_t batt, uint32_t temp, uint32_t lumi, uint32_t soil, uint32_t humi, uint32_t rssi, uint32_t error, uint32_t alert, uint32_t mac) {
+    mac_fields = mac;
     batt_fields = batt;
     temp_fields = temp;
     lumi_fields = lumi;
@@ -113,9 +208,8 @@ public:
     alert_fields = alert;
   }
 public:
-  Mclh09Gateway(const std::vector<uint64_t> &mac_addresses, uint32_t update_interval = 3600000, bool error_counting = false, bool raw_soil = false) {
-    mac_addresses_ = mac_addresses;
-    device_count = mac_addresses_.size();
+  Mclh09Gateway(size_t max_devices, uint32_t update_interval = 3600000, bool error_counting = false, bool raw_soil = false) {
+    device_count = max_devices;
 
     // выделяем динамические массивы сенсоров и ble-клиентов каждого вида
     batt_sensor = new sensor::Sensor *[device_count];
@@ -125,6 +219,7 @@ public:
     humi_sensor = new sensor::Sensor *[device_count];
     rssi_sensor = new sensor::Sensor *[device_count];
     alert_select = new AlertSelect *[device_count];
+    mac_select = new MacSelect *[device_count];
     alert_value = new size_t[device_count];
     ble_client = new myhomeiot_ble_client2::MyHomeIOT_BLEClient2 *[device_count];
     if (error_counting)
@@ -228,10 +323,17 @@ public:
       snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "alert_select");
 #endif
 
+      // mac select
+      mac_select[i] = new MacSelect();
+      snprintf(buffer, sizeof(buffer), SENSOR_NAME, i + 1, "MAC");
+#if ESPHOME_VERSION_CODE < VERSION_CODE(2026, 1, 0)
+      snprintf(buffer, sizeof(buffer), SENSOR_ID, i + 1, "mac");
+#endif
+
 
       // ble-клиент
       ble_client[i] = new myhomeiot_ble_client2::MyHomeIOT_BLEClient2();
-      ble_client[i]->set_address(mac_addresses_[i]);
+      mac_select[i]->set_ble_client(ble_client[i]);
       ble_client[i]->set_update_interval(update_interval);
 
       // сервисы ble-клиента
@@ -336,6 +438,35 @@ public:
     }
   }
 
+
+  bool parse_device(const esp32_ble_tracker::ESPBTDevice &device) override {
+    bool found = false;
+    for (auto &record : device.get_manufacturer_datas()) {
+      if (record.data.size() == 20 && record.data[2] == 0x1B && record.data[3] == 0xC5 && record.data[4] == 0xD5 && record.data[5] == 0xA5) {
+        found = true;
+        break;
+      }
+    }
+
+    char buf[18];
+    device.address_str_to(buf);
+    std::string mac_str = std::string(buf);
+
+    if (found || mac_str.rfind("00:1B:DC:4B", 0) == 0) {
+      if (std::find(discovered_macs.begin(), discovered_macs.end(), mac_str) == discovered_macs.end()) {
+        ESP_LOGI(TAG, "Discovered MCLH-09 device: %s", mac_str.c_str());
+        discovered_macs.push_back(mac_str);
+        for (size_t i = 0; i < device_count; i++) {
+          if (mac_select[i] != nullptr) {
+            mac_select[i]->add_discovered_mac(mac_str);
+          }
+        }
+      }
+      return true;
+    }
+    return false;
+  }
+
   void set_ble_host(myhomeiot_ble_host::MyHomeIOT_BLEHost *blehost) {
     for (size_t i = 0; i < device_count; i++)
       blehost->register_ble_client(ble_client[i]);
@@ -361,8 +492,9 @@ protected:
   }
 
 private:
-  std::vector<uint64_t> mac_addresses_;
   size_t device_count;
+  std::vector<std::string> discovered_macs;
+  MacSelect **mac_select;
   myhomeiot_ble_client2::MyHomeIOT_BLEClient2 **ble_client;
   sensor::Sensor **batt_sensor, **temp_sensor, **lumi_sensor, **soil_sensor, **humi_sensor, **rssi_sensor, **error_sensor;
   AlertSelect **alert_select;
