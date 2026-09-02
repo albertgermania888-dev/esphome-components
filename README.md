@@ -96,20 +96,16 @@ external_components:
 
 ## [MCLH 09 Gateway](components/mclh_09_gateway)
 Component-helper for control any quantity of MCLH-09 flower-sensors with [BLE Client2](#ble-client2).
-For every MCLH-09 device it will create sensors: battery level, temperature, soil, light, rssi.
+For every MCLH-09 device slot it will create sensors: battery level, temperature, soil, light, rssi, and MAC address selector for dynamic Home Assistant UI configuration.
 #### ESPHome configuration example
 ```yaml
 esp32_ble_tracker:
 myhomeiot_ble_host:
 mclh_09_gateway:
+  max_devices: 4
   interval: 10min
   error_counting: true
   raw_soil: false
-  mac_address:
-    - "00:00:00:11:11:11"
-    - "00:00:00:22:22:22"
-    - "00:00:00:33:33:33"
-    - "00:00:00:44:44:44"
 
 external_components:
   - source: github://myhomeiot/esphome-components
