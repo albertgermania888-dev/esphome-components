@@ -83,40 +83,41 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            address = user_input[CONF_ADDRESS]
+            address = user_input[CONF_ADDRESS].upper()
             await self.async_set_unique_id(address)
             self._abort_if_unique_id_configured()
 
+            # Use the friendly name if selected from the dropdown, otherwise use MAC as title
+            title = self._discovered_devices.get(address, address)
+            if "(" in title and ")" in title:
+                title = title.split(" (")[0]
+
             return self.async_create_entry(
-                title=user_input.get("name", address),
+                title=title,
                 data={CONF_ADDRESS: address},
             )
 
         # Find already discovered devices
         current_addresses = self._async_current_ids()
         for discovery_info in async_discovered_service_info(self.hass):
-            address = discovery_info.address
+            address = discovery_info.address.upper()
             if address in current_addresses:
                 continue
             if discovery_info.name and ("mclh" in discovery_info.name.lower() or "lifecontrol" in discovery_info.name.lower()):
                 self._discovered_devices[address] = f"{discovery_info.name} ({address})"
 
-        # We will allow either string input or selection
-        # If discovered devices exist, we show a dynamic form but allow manual string input
-        schema = {
-            vol.Required(CONF_ADDRESS): cv.string,
-        }
-
-        # We can just leave it as string to allow manual typing.
-        # If we wanted to make a dropdown we could use SelectSelector but standard string is most robust
-        # for allowing manual MAC input while still showing instructions for what to put.
+        if self._discovered_devices:
+            schema = {
+                vol.Required(CONF_ADDRESS): vol.In(self._discovered_devices),
+            }
+        else:
+            schema = {
+                vol.Required(CONF_ADDRESS): cv.string,
+            }
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(schema),
-            description_placeholders={
-                "discovered": ", ".join(self._discovered_devices.values()) if self._discovered_devices else "None found nearby"
-            },
             errors=errors,
         )
 

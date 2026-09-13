@@ -111,6 +111,9 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         illuminance = interpolate(illuminance_raw, LIGHT_VALUES, LIGHT_READINGS)
         air_humidity = air_humidity_raw / 10.0
 
+        # Clamp moisture between 0.0 and 100.0
+        moisture = max(0.0, min(100.0, moisture))
+
         data = {
             "temperature": round(temperature, 1),
             "air_humidity": round(air_humidity, 1),

@@ -1,0 +1,22 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add LifeControl MCLH-09 Sensor",
+        "data": {
+          "address": "Device (select discovered device or enter MAC)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure MCLH-09",
+        "data": {
+          "polling_interval": "Polling interval (minutes)"
+        }
+      }
+    }
+  }
+}
