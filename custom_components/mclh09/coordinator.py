@@ -10,6 +10,7 @@ from bleak import BleakClient
 from bleak.exc import BleakError
 
 from homeassistant.components import bluetooth
+from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -17,7 +18,8 @@ from .const import (
     DOMAIN,
     DATA_CHAR_UUID,
     BATTERY_CHAR_UUID,
-    UPDATE_INTERVAL,
+    CONF_POLLING_INTERVAL,
+    DEFAULT_POLLING_INTERVAL,
     TEMPERATURE_VALUES,
     TEMPERATURE_READINGS,
     MOISTURE_VALUES,
@@ -51,14 +53,18 @@ def interpolate(raw_value: float, values: list[float], raw_values: list[float]) 
 class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
     """Class to manage fetching data from the MCLH-09 BLE device."""
 
-    def __init__(self, hass: HomeAssistant, address: str) -> None:
+    def __init__(self, hass: HomeAssistant, address: str, entry: ConfigEntry) -> None:
         """Initialize the coordinator."""
         self.address = address
+        self.entry = entry
+
+        interval = entry.options.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)
+
         super().__init__(
             hass,
             _LOGGER,
             name=f"{DOMAIN}_{address}",
-            update_interval=timedelta(seconds=UPDATE_INTERVAL),
+            update_interval=timedelta(minutes=interval),
         )
 
     async def _async_update_data(self) -> dict[str, float]:
@@ -88,10 +94,9 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         if len(data_bytes) < 8:
             raise UpdateFailed(f"Invalid data length received: {len(data_bytes)}")
 
-        # Unpack format: <HxxHH (temp_raw, moisture_raw, illuminance_raw)
-        # Note: H is 2 bytes, x is 1 byte of padding
+        # Unpack format: <HHHH (temp_raw, air_humidity_raw, moisture_raw, illuminance_raw)
         try:
-            temp_raw, moisture_raw, illuminance_raw = struct.unpack("<HxxHH", data_bytes[:8])
+            temp_raw, air_humidity_raw, moisture_raw, illuminance_raw = struct.unpack("<HHHH", data_bytes[:8])
         except struct.error as err:
             raise UpdateFailed(f"Failed to unpack data: {err}") from err
 
@@ -104,9 +109,11 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         temperature = interpolate(temp_raw, TEMPERATURE_VALUES, TEMPERATURE_READINGS)
         moisture = interpolate(moisture_raw, MOISTURE_VALUES, MOISTURE_READINGS)
         illuminance = interpolate(illuminance_raw, LIGHT_VALUES, LIGHT_READINGS)
+        air_humidity = air_humidity_raw / 10.0
 
         data = {
             "temperature": round(temperature, 1),
+            "air_humidity": round(air_humidity, 1),
             "moisture": round(moisture, 1),
             "illuminance": round(illuminance, 1),
             "battery": battery_level,
