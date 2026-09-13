@@ -15,6 +15,7 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
 
 from .const import DOMAIN, CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
 
@@ -63,17 +64,22 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     ) -> FlowResult:
         """Confirm discovery."""
         if user_input is not None:
+            title = self._discovery_info.name or self._discovery_info.address
+            address = self._discovery_info.address.upper()
             return self.async_create_entry(
-                title=self._discovery_info.name or self._discovery_info.address,
-                data={CONF_ADDRESS: self._discovery_info.address},
+                title=f"{title} ({address})",
+                data={CONF_ADDRESS: address},
+                options={CONF_POLLING_INTERVAL: user_input.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)},
             )
 
-        self._set_confirm_only()
         return self.async_show_form(
             step_id="bluetooth_confirm",
             description_placeholders={
                 "name": self._discovery_info.name or self._discovery_info.address
             },
+            data_schema=vol.Schema({
+                vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=1)),
+            }),
         )
 
     async def async_step_user(
@@ -93,8 +99,9 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 title = title.split(" (")[0]
 
             return self.async_create_entry(
-                title=title,
+                title=f"{title} ({address})",
                 data={CONF_ADDRESS: address},
+                options={CONF_POLLING_INTERVAL: user_input.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)},
             )
 
         # Find already discovered devices
@@ -106,14 +113,18 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if discovery_info.name and ("mclh" in discovery_info.name.lower() or "lifecontrol" in discovery_info.name.lower()):
                 self._discovered_devices[address] = f"{discovery_info.name} ({address})"
 
+        schema = {}
         if self._discovered_devices:
-            schema = {
-                vol.Required(CONF_ADDRESS): vol.In(self._discovered_devices),
-            }
+            schema[vol.Required(CONF_ADDRESS)] = SelectSelector(
+                SelectSelectorConfig(
+                    options=list(self._discovered_devices.keys()),
+                    custom_value=True,
+                )
+            )
         else:
-            schema = {
-                vol.Required(CONF_ADDRESS): cv.string,
-            }
+            schema[vol.Required(CONF_ADDRESS)] = cv.string
+
+        schema[vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL)] = vol.All(vol.Coerce(int), vol.Range(min=1))
 
         return self.async_show_form(
             step_id="user",

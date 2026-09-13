@@ -11,5 +11,9 @@
   ],
   "codeowners": [],
   "iot_class": "local_polling",
-  "config_flow": true
+  "config_flow": true,
+  "bluetooth": [
+    { "local_name": "mclh09*" },
+    { "local_name": "LifeControl*" }
+  ]
 }

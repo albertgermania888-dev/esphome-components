@@ -92,7 +92,7 @@ class MCLH09Sensor(CoordinatorEntity[MCLH09Coordinator], SensorEntity):
         self._attr_unique_id = f"{address}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, address)},
-            name=entry.title or "LifeControl MCLH-09",
+            name=entry.title or f"LifeControl MCLH-09 ({address})",
             manufacturer="LifeControl",
             model="MCLH-09",
         )

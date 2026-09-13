@@ -18,6 +18,7 @@ from .const import (
     DOMAIN,
     DATA_CHAR_UUID,
     BATTERY_CHAR_UUID,
+    COMMAND_CHAR_UUID,
     CONF_POLLING_INTERVAL,
     DEFAULT_POLLING_INTERVAL,
     TEMPERATURE_VALUES,
@@ -124,3 +125,21 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
 
         _LOGGER.debug("Parsed data for %s: %s", self.address, data)
         return data
+
+    async def async_send_command(self, payload: bytes) -> None:
+        """Send a command to the device's Immediate Alert characteristic."""
+        ble_device = bluetooth.async_ble_device_from_address(self.hass, self.address, connectable=True)
+        if not ble_device:
+            raise UpdateFailed(f"Could not find BLE device with address {self.address}")
+
+        client = BleakClient(ble_device)
+        try:
+            async with asyncio.timeout(30):
+                await client.connect()
+                await client.write_gatt_char(COMMAND_CHAR_UUID, payload, response=True)
+                _LOGGER.debug("Sent command %s to %s", payload, self.address)
+        except (BleakError, asyncio.TimeoutError) as err:
+            raise UpdateFailed(f"Error sending command to device {self.address}: {err}") from err
+        finally:
+            if client.is_connected:
+                await client.disconnect()
