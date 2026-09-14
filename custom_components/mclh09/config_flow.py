@@ -15,7 +15,7 @@ from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.helpers import config_validation as cv
-from homeassistant.helpers.selector import SelectSelector, SelectSelectorConfig
+from homeassistant.helpers.selector import SelectOptionDict, SelectSelector, SelectSelectorConfig
 
 from .const import DOMAIN, CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL
 
@@ -108,17 +108,25 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if discovery_info.name and ("mclh" in discovery_info.name.lower() or "lifecontrol" in discovery_info.name.lower()):
                 self._discovered_devices[address] = f"{discovery_info.name} ({address})"
 
-        schema = {
-            vol.Required(CONF_ADDRESS): cv.string,
-            vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): int,
-        }
+        schema = {}
+        if self._discovered_devices:
+            schema[vol.Required(CONF_ADDRESS)] = SelectSelector(
+                SelectSelectorConfig(
+                    options=[
+                        SelectOptionDict(value=mac, label=label)
+                        for mac, label in self._discovered_devices.items()
+                    ],
+                    custom_value=True,
+                )
+            )
+        else:
+            schema[vol.Required(CONF_ADDRESS)] = cv.string
+
+        schema[vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL)] = int
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(schema),
-            description_placeholders={
-                "discovered": ", ".join(self._discovered_devices.values()) if self._discovered_devices else "None found nearby"
-            },
             errors=errors,
         )
 
