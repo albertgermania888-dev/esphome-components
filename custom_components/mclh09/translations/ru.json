@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Добавление датчика LifeControl",
+        "data": {
+          "address": "Устройство (выберите из списка или введите MAC)",
+          "polling_interval": "Интервал опроса (в минутах)"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Обнаружен датчик LifeControl",
+        "description": "Добавить датчик {name}?",
+        "data": {
+          "polling_interval": "Интервал опроса (в минутах)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Настройка MCLH-09",
+        "data": {
+          "polling_interval": "Интервал опроса (в минутах)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "force_update": {
+        "name": "Принудительное обновление"
+      },
+      "calibrate_temp": {
+        "name": "Калибровка температуры"
+      },
+      "calibrate_moisture": {
+        "name": "Калибровка влажности/света"
+      },
+      "factory_reset": {
+        "name": "Сброс к заводским настройкам"
+      }
+    }
+  }
+}

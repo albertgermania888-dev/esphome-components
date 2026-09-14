@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Add LifeControl MCLH-09 Sensor",
+        "data": {
+          "address": "Device (select discovered device or enter MAC)",
+          "polling_interval": "Polling interval (minutes)"
+        }
+      },
+      "bluetooth_confirm": {
+        "title": "Discovered LifeControl Sensor",
+        "description": "Do you want to setup {name}?",
+        "data": {
+          "polling_interval": "Polling interval (minutes)"
+        }
+      }
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Configure MCLH-09",
+        "data": {
+          "polling_interval": "Polling interval (minutes)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "button": {
+      "force_update": {
+        "name": "Force Update"
+      },
+      "calibrate_temp": {
+        "name": "Calibrate Temperature"
+      },
+      "calibrate_moisture": {
+        "name": "Calibrate Moisture/Light"
+      },
+      "factory_reset": {
+        "name": "Factory Reset"
+      }
+    }
+  }
+}

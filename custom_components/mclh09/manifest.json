@@ -1,0 +1,19 @@
+{
+  "domain": "mclh09",
+  "name": "LifeControl MCLH-09 Plant Sensor",
+  "version": "1.0.0",
+  "documentation": "https://github.com/myhomeiot/esphome-lifecontrol-mclh-09",
+  "dependencies": [
+    "bluetooth"
+  ],
+  "requirements": [
+    "bleak"
+  ],
+  "codeowners": [],
+  "iot_class": "local_polling",
+  "config_flow": true,
+  "bluetooth": [
+    { "local_name": "MCLH-09*" },
+    { "local_name": "LifeControl*" }
+  ]
+}
