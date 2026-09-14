@@ -66,7 +66,7 @@ class MCLH09Button(ButtonEntity):
         self._attr_unique_id = f"{address}_{description.key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, address)},
-            name=entry.title or f"LifeControl MCLH-09 ({address})",
+            name=f"LifeControl MCLH-09 ({address})",
             manufacturer="LifeControl",
             model="MCLH-09",
         )

@@ -78,7 +78,7 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "name": self._discovery_info.name or self._discovery_info.address
             },
             data_schema=vol.Schema({
-                vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): int,
             }),
         )
 
@@ -93,13 +93,8 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             await self.async_set_unique_id(address)
             self._abort_if_unique_id_configured()
 
-            # Use the friendly name if selected from the dropdown, otherwise use MAC as title
-            title = self._discovered_devices.get(address, address)
-            if "(" in title and ")" in title:
-                title = title.split(" (")[0]
-
             return self.async_create_entry(
-                title=f"{title} ({address})",
+                title=f"LifeControl MCLH-09 ({address})",
                 data={CONF_ADDRESS: address},
                 options={CONF_POLLING_INTERVAL: user_input.get(CONF_POLLING_INTERVAL, DEFAULT_POLLING_INTERVAL)},
             )
@@ -113,22 +108,17 @@ class MCLH09ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if discovery_info.name and ("mclh" in discovery_info.name.lower() or "lifecontrol" in discovery_info.name.lower()):
                 self._discovered_devices[address] = f"{discovery_info.name} ({address})"
 
-        schema = {}
-        if self._discovered_devices:
-            schema[vol.Required(CONF_ADDRESS)] = SelectSelector(
-                SelectSelectorConfig(
-                    options=list(self._discovered_devices.keys()),
-                    custom_value=True,
-                )
-            )
-        else:
-            schema[vol.Required(CONF_ADDRESS)] = cv.string
-
-        schema[vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL)] = vol.All(vol.Coerce(int), vol.Range(min=1))
+        schema = {
+            vol.Required(CONF_ADDRESS): cv.string,
+            vol.Required(CONF_POLLING_INTERVAL, default=DEFAULT_POLLING_INTERVAL): int,
+        }
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(schema),
+            description_placeholders={
+                "discovered": ", ".join(self._discovered_devices.values()) if self._discovered_devices else "None found nearby"
+            },
             errors=errors,
         )
 
@@ -158,7 +148,7 @@ class MCLH09OptionsFlowHandler(config_entries.OptionsFlow):
                     vol.Required(
                         CONF_POLLING_INTERVAL,
                         default=current_interval,
-                    ): vol.All(vol.Coerce(int), vol.Range(min=1)),
+                    ): int,
                 }
             ),
         )

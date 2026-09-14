@@ -77,7 +77,7 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         client = BleakClient(ble_device)
         try:
             async with asyncio.timeout(30):
-                await client.connect()
+                await client.connect(timeout=30.0)
 
                 # Read Data Characteristic
                 data_bytes = await client.read_gatt_char(DATA_CHAR_UUID)
@@ -135,7 +135,7 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         client = BleakClient(ble_device)
         try:
             async with asyncio.timeout(30):
-                await client.connect()
+                await client.connect(timeout=30.0)
                 await client.write_gatt_char(COMMAND_CHAR_UUID, payload, response=True)
                 _LOGGER.debug("Sent command %s to %s", payload, self.address)
         except (BleakError, asyncio.TimeoutError) as err:
