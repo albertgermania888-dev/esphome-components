@@ -7,6 +7,13 @@
           "address": "Device (select discovered device or enter MAC)",
           "polling_interval": "Polling interval (minutes)"
         }
+      },
+      "bluetooth_confirm": {
+        "title": "Discovered LifeControl Sensor",
+        "description": "Do you want to setup {name}?",
+        "data": {
+          "polling_interval": "Polling interval (minutes)"
+        }
       }
     }
   },

@@ -7,6 +7,13 @@
           "address": "Устройство (выберите из списка или введите MAC)",
           "polling_interval": "Интервал опроса (в минутах)"
         }
+      },
+      "bluetooth_confirm": {
+        "title": "Обнаружен датчик LifeControl",
+        "description": "Добавить датчик {name}?",
+        "data": {
+          "polling_interval": "Интервал опроса (в минутах)"
+        }
       }
     }
   },
