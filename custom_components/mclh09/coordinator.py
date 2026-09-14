@@ -8,6 +8,7 @@ from datetime import timedelta
 
 from bleak import BleakClient
 from bleak.exc import BleakError
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from homeassistant.components import bluetooth
 from homeassistant.config_entries import ConfigEntry
@@ -74,10 +75,16 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         if not ble_device:
             raise UpdateFailed(f"Could not find BLE device with address {self.address}")
 
-        client = BleakClient(ble_device)
+        client = None
         try:
             async with asyncio.timeout(30):
-                await client.connect(timeout=30.0)
+                _LOGGER.debug("Connecting to %s using bleak_retry_connector", self.address)
+                client = await establish_connection(
+                    BleakClientWithServiceCache,
+                    ble_device,
+                    self.address,
+                )
+                _LOGGER.debug("Successfully connected, reading characteristics...")
 
                 # Read Data Characteristic
                 data_bytes = await client.read_gatt_char(DATA_CHAR_UUID)
@@ -88,7 +95,7 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         except (BleakError, asyncio.TimeoutError) as err:
             raise UpdateFailed(f"Error communicating with device {self.address}: {err}") from err
         finally:
-            if client.is_connected:
+            if client and client.is_connected:
                 await client.disconnect()
 
         # Parse data
@@ -132,14 +139,20 @@ class MCLH09Coordinator(DataUpdateCoordinator[dict[str, float]]):
         if not ble_device:
             raise UpdateFailed(f"Could not find BLE device with address {self.address}")
 
-        client = BleakClient(ble_device)
+        client = None
         try:
             async with asyncio.timeout(30):
-                await client.connect(timeout=30.0)
+                _LOGGER.debug("Connecting to %s using bleak_retry_connector", self.address)
+                client = await establish_connection(
+                    BleakClientWithServiceCache,
+                    ble_device,
+                    self.address,
+                )
+                _LOGGER.debug("Successfully connected, reading characteristics...")
                 await client.write_gatt_char(COMMAND_CHAR_UUID, payload, response=True)
                 _LOGGER.debug("Sent command %s to %s", payload, self.address)
         except (BleakError, asyncio.TimeoutError) as err:
             raise UpdateFailed(f"Error sending command to device {self.address}: {err}") from err
         finally:
-            if client.is_connected:
+            if client and client.is_connected:
                 await client.disconnect()

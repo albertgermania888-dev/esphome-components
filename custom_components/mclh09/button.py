@@ -1,6 +1,8 @@
 """Button platform for LifeControl MCLH-09."""
 from __future__ import annotations
 
+import logging
+
 from homeassistant.components.button import ButtonEntity, ButtonEntityDescription, ButtonDeviceClass
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS
@@ -10,6 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .const import DOMAIN
 from .coordinator import MCLH09Coordinator
+
+_LOGGER = logging.getLogger(__name__)
 
 BUTTONS: tuple[ButtonEntityDescription, ...] = (
     ButtonEntityDescription(
@@ -74,6 +78,8 @@ class MCLH09Button(ButtonEntity):
 
     async def async_press(self) -> None:
         """Handle the button press."""
+        _LOGGER.info("Button '%s' pressed for %s", self.entity_description.name, self._attr_device_info["name"])
+
         if self.entity_description.key == "force_update":
             await self.coordinator.async_request_refresh()
         elif self.entity_description.key == "calibrate_temp":
